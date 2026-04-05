@@ -1,0 +1,56 @@
+### Get all trips
+GET http://localhost:5000/trips
+
+### Get trips filtered by line
+GET http://localhost:5000/trips?lineId=1
+
+### Get trips filtered by date range
+GET http://localhost:5000/trips?from=2026-03-27T00:00:00&to=2026-03-28T00:00:00
+
+### Process trip updates - Late
+POST http://localhost:5000/updates/trips
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "tripId": 1,
+      "actualDeparture": "2026-03-27T08:10:00",
+      "actualArrival": "2026-03-27T09:10:00"
+    }
+  ]
+}
+
+### Process trip updates - Early
+POST http://localhost:5000/updates/trips
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "tripId": 2,
+      "actualDeparture": "2026-03-27T09:50:00",
+      "actualArrival": "2026-03-27T10:50:00"
+    }
+  ]
+}
+
+### Process trip updates - Invalid trip
+POST http://localhost:5000/updates/trips
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "tripId": 999,
+      "actualDeparture": "2026-03-27T08:00:00",
+      "actualArrival": "2026-03-27T09:00:00"
+    }
+  ]
+}
+
+### Get all update logs
+GET http://localhost:5000/updatelogs
+
+### Get update logs filtered by status
+GET http://localhost:5000/updatelogs?status=Late
