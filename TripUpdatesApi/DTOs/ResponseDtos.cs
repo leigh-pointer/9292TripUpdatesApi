@@ -1,19 +1,12 @@
 namespace TripUpdatesApi.DTOs;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DTOs in this file define the shape of data that GOES OUT of the API.
-// They are the response contract and are deliberately decoupled from the
-// domain models so that:
-//   1. Internal fields (e.g. navigation properties, EF tracking state) are
-//      never accidentally serialised into the response.
-//   2. The response shape can be versioned independently of the domain model.
-//   3. Enum values are serialised as human-readable strings (e.g. "Late")
-//      rather than integers, making the API self-describing.
-// ─────────────────────────────────────────────────────────────────────────────
+// Output contracts — what the API sends back to callers.
+// Kept separate from domain models so internal fields are never accidentally
+// exposed, and the response shape can be versioned independently.
 
-// Read model for a Trip — returned by GET /trips.
-// Status is a string so consumers receive "OnTime" / "Late" / "Early" etc.
-// rather than a raw integer that requires knowledge of the enum definition.
+// Read model for GET /trips.
+// Status is serialised as a string ("OnTime", "Late", etc.) rather than an
+// integer so the response is self-describing without needing the enum definition.
 public class TripDto
 {
     public int TripId { get; set; }
@@ -23,9 +16,7 @@ public class TripDto
     public string Status { get; set; } = string.Empty;
 }
 
-// Read model for an UpdateLog entry — returned inside BatchUpdateResult and
-// by GET /updatelogs.
-// UpdateTimestamp is in UTC so consumers can convert to their local timezone.
+// Read model for GET /updatelogs and for the Logs list inside BatchUpdateResult.
 public class UpdateLogDto
 {
     public int UpdateLogId { get; set; }
@@ -34,15 +25,12 @@ public class UpdateLogDto
     public string Status { get; set; } = string.Empty;
 }
 
-// Summary response returned by POST /updates/trips.
-// Provides a clear breakdown of what happened during batch processing:
-//   - TotalProcessed: how many updates were in the request.
-//   - SuccessCount:   how many were applied successfully.
-//   - FailureCount:   how many failed (trip not found, exception, etc.).
-//   - Logs:           the UpdateLog records created for successful updates,
-//                     so the caller can confirm what status was assigned.
-//   - Errors:         human-readable error messages for each failure,
-//                     indexed in the same order as the failed updates.
+// Response for POST /updates/trips.
+// Designed around the partial-success pattern: one bad trip ID in a batch of
+// ten should not fail the whole request.  The caller gets a full breakdown:
+//   - counts to know at a glance how many succeeded vs failed
+//   - Logs for every successful update (immediate confirmation of what was recorded)
+//   - Errors for every failure with enough detail to diagnose the problem
 public class BatchUpdateResult
 {
     public int TotalProcessed { get; set; }

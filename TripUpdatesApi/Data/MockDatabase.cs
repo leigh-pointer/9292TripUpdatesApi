@@ -2,49 +2,41 @@ using TripUpdatesApi.Models;
 
 namespace TripUpdatesApi.Data;
 
-// MockDatabase is the in-memory data store for the entire application.
-// It replaces a real database (PostgreSQL / SQL Server) for this demo so that
-// the project has zero external dependencies and can be run with a single
-// `dotnet run`.
+// MockDatabase is the single in-memory store for the entire application.
+// It has two responsibilities:
+//   1. Seed realistic transit data so the API is immediately usable.
+//   2. Provide the query and mutation methods that the service layer calls.
 //
-// Registered as a Singleton in Program.cs so every request shares the same
-// instance — this is what gives the illusion of persistence within a single
-// process lifetime.  Restarting the app resets all data to the seeded state.
+// This is a deliberate trade-off: no external dependencies, instant startup,
+// easy to reason about during a demo.  The cost is that data resets on restart.
 //
-// In production this class would be replaced by:
-//   - EF Core DbContext with real migrations
-//   - Repository pattern to abstract data access behind interfaces
-//   - A connection string pointing to a persistent database
+// In production this is replaced by an EF Core DbContext backed by a real
+// database, with the repository pattern abstracting the data access behind
+// an interface so the service layer never changes.
 public class MockDatabase
 {
-    // In-memory collections that act as database tables.
-    // Public setters allow WebApplicationFactory to swap data in integration tests.
+    // These collections are the "tables". Public setters let integration tests
+    // inspect or replace data without needing a real database connection.
     public List<Trip> Trips { get; set; } = new();
     public List<Line> Lines { get; set; } = new();
     public List<Operator> Operators { get; set; } = new();
     public List<UpdateLog> UpdateLogs { get; set; } = new();
 
-    // Simple auto-increment counters that mimic a database IDENTITY column.
-    // Starting at 1 matches the convention of most relational databases.
+    // Auto-increment counters that mimic a database IDENTITY / SERIAL column.
     private int _tripIdCounter = 1;
     private int _logIdCounter = 1;
 
-    // The constructor immediately seeds the database so the API is usable
-    // the moment it starts — no manual setup or migration step required.
+    // Seed on construction so the API has data the moment it starts —
+    // no migration, no setup script, no external dependency.
     public MockDatabase()
     {
         SeedData();
     }
 
-    // ── Seed data ─────────────────────────────────────────────────────────────
-    // Populates the in-memory tables with realistic-looking transit data.
-    // Using tomorrow's date (AddDays(1)) ensures the scheduled times are always
-    // in the future, which makes the demo data feel live regardless of when
-    // the app is started.
     private void SeedData()
     {
-        // Three lines across two operators to demonstrate the filtering capability
-        // of GET /trips?lineId= and the operator relationship.
+        // Two operators running three lines — enough variety to demonstrate
+        // the lineId filter on GET /trips without overwhelming the demo.
         Lines.AddRange(new[]
         {
             new Line { LineId = 1, OperatorNo = "OP001", LinePlanningNumber = "LN001" },
@@ -58,10 +50,12 @@ public class MockDatabase
             new Operator { OperatorNo = "OP002", Name = "Stad Bus" }
         });
 
+        // Tomorrow's date keeps scheduled times in the future regardless of
+        // when the app is started, so the demo always feels live.
         var baseDate = DateTime.Today.AddDays(1);
 
-        // Five trips spread across the three lines with varying departure windows.
-        // All start as OnTime — their status changes when POST /updates/trips is called.
+        // All trips start as OnTime. Status changes the moment a real-time
+        // update is POSTed — that transition is the core of the demo.
         Trips.AddRange(new[]
         {
             new Trip { TripId = _tripIdCounter++, LineNo = 1, DepartureTime = baseDate.AddHours(8),  ArrivalTime = baseDate.AddHours(9),                   Status = TripStatus.OnTime },
@@ -72,20 +66,17 @@ public class MockDatabase
         });
     }
 
-    // ── Query methods ─────────────────────────────────────────────────────────
-    // These methods encapsulate all data-access logic, keeping the service layer
-    // free of collection-manipulation details.  In production each of these
-    // would be a LINQ-to-EF query that translates to SQL.
+    // ── Queries ───────────────────────────────────────────────────────────────
+    // All data-access logic lives here, keeping the service layer free of
+    // collection details.  In production each method becomes a LINQ-to-EF
+    // query that the ORM translates to SQL.
 
-    // Single-trip lookup used by TripService when processing an update.
-    // Returns null if the trip does not exist so the caller can handle the
-    // "not found" case explicitly rather than catching an exception.
+    // Used by TripService before processing an update — returns null so the
+    // caller can report a clean "not found" error rather than throw.
     public Trip? GetTrip(int tripId) => Trips.FirstOrDefault(t => t.TripId == tripId);
 
-    // Filtered trip query supporting three independent, optional filters.
-    // All three filters are AND-ed together: only trips matching every
-    // supplied criterion are returned.  Omitting a filter returns all trips
-    // for that dimension.
+    // All three filters are optional and AND-ed together.
+    // Omitting all of them returns the full trip catalogue.
     public IEnumerable<Trip> GetTrips(int? lineId, DateTime? from, DateTime? to)
     {
         var query = Trips.AsEnumerable();
@@ -98,9 +89,8 @@ public class MockDatabase
         return query;
     }
 
-    // Filtered update-log query with the same optional-filter pattern.
-    // Results are ordered newest-first so callers see the most recent activity
-    // at the top without needing to sort themselves.
+    // Same optional-filter pattern as GetTrips.
+    // Ordered newest-first so the most recent activity surfaces at the top.
     public IEnumerable<UpdateLog> GetUpdateLogs(DateTime? from, DateTime? to, UpdateStatus? status)
     {
         var query = UpdateLogs.AsEnumerable();
@@ -113,11 +103,10 @@ public class MockDatabase
         return query.OrderByDescending(l => l.UpdateTimestamp);
     }
 
-    // ── Mutation methods ──────────────────────────────────────────────────────
+    // ── Mutations ─────────────────────────────────────────────────────────────
 
-    // Appends a new log entry and assigns it a unique ID before returning it.
-    // The caller receives the fully-populated log (with its new ID) so it can
-    // immediately include it in the API response without a second lookup.
+    // Appends a new audit log entry and assigns its ID before returning it,
+    // so TripService can include the populated log in the response immediately.
     public UpdateLog AddUpdateLog(UpdateLog log)
     {
         log.UpdateLogId = _logIdCounter++;
@@ -126,8 +115,8 @@ public class MockDatabase
     }
 
     // Updates the live status of a trip in place.
-    // The null-guard is a safety net; in practice the service always verifies
-    // the trip exists before calling this method.
+    // TripService always verifies the trip exists first; the null-guard here
+    // is a defensive safety net.
     public void UpdateTripStatus(int tripId, TripStatus status)
     {
         var trip = GetTrip(tripId);

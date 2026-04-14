@@ -4,34 +4,26 @@ using TripUpdatesApi.Models;
 
 namespace TripUpdatesApi.Services;
 
-// UpdateLogService handles all read operations for the update audit trail.
-// It is intentionally kept separate from TripService because the two
-// responsibilities — processing live updates vs querying historical logs —
-// have different change rates and could be owned by different teams in a
-// larger system.
+// Handles all read operations against the audit trail.
+// Kept separate from TripService because reading historical logs and processing
+// live updates are distinct responsibilities with different change drivers.
 public class UpdateLogService
 {
     private readonly MockDatabase _db;
 
     public UpdateLogService(MockDatabase db) => _db = db;
 
-    // Returns update logs matching the optional filters, projected to UpdateLogDto.
-    //
-    // The status parameter arrives as a raw string from the query string
-    // (e.g. ?status=Late) because HTTP query parameters are always strings.
-    // Enum.TryParse converts it case-insensitively to UpdateStatus, and if the
-    // value is unrecognised the filter is simply ignored — a lenient approach
-    // that avoids returning 400 for a typo when the intent is clearly to filter.
+    // Returns logs matching the optional filters, projected to UpdateLogDto.
+    // The status parameter is a raw string from the query string — HTTP gives
+    // us no better type here.  Enum.TryParse converts it case-insensitively;
+    // an unrecognised value is silently ignored rather than returning a 400,
+    // which is the right trade-off when the intent to filter is clear.
     public IEnumerable<UpdateLogDto> GetLogs(DateTime? from, DateTime? to, string? status)
     {
-        // Attempt to parse the string status into the enum.
-        // ignoreCase: true means "late", "Late", and "LATE" all work.
         UpdateStatus? statusEnum = null;
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<UpdateStatus>(status, true, out var parsed))
             statusEnum = parsed;
 
-        // Delegate filtering and ordering to the database layer, then project
-        // to the DTO to avoid leaking domain model internals to the controller.
         return _db.GetUpdateLogs(from, to, statusEnum)
             .Select(l => new UpdateLogDto
             {

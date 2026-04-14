@@ -4,13 +4,10 @@ using TripUpdatesApi.Services;
 
 namespace TripUpdatesApi.Controllers;
 
-// UpdatesController handles all write operations — specifically the ingestion
-// of real-time trip updates from operators.
-//
-// The route is "updates" (hardcoded) rather than "[controller]" because the
-// class name "UpdatesController" would produce the same result, but being
-// explicit makes the intent clearer and prevents accidental renames from
-// silently changing the public API URL.
+// Thin HTTP layer for ingesting real-time updates from operators.
+// Responsibility: validate the request shape and hand off to TripService.
+// All processing logic — status determination, logging, partial failure
+// handling — lives in the service, not here.
 [ApiController]
 [Route("updates")]
 public class UpdatesController : ControllerBase
@@ -20,20 +17,10 @@ public class UpdatesController : ControllerBase
     public UpdatesController(TripService tripService) => _tripService = tripService;
 
     // POST /updates/trips
-    //
-    // Accepts a JSON body matching BatchUpdateRequest — a list of one or more
-    // trip updates.  Using a batch endpoint (rather than one POST per trip)
-    // reduces HTTP round-trips when an operator sends a burst of updates.
-    //
-    // [FromBody] tells the model binder to deserialise the request body as JSON.
-    // Because [ApiController] is present, ModelState is validated automatically
-    // before this method is called — but the explicit check is kept here as a
-    // clear, visible guard for presentation purposes.
-    //
-    // Returns 200 OK with a BatchUpdateResult that breaks down successes,
-    // failures, and the log entries created.  A 200 (rather than 207 Multi-Status)
-    // is used for simplicity; in production a 207 would more accurately reflect
-    // partial-success scenarios.
+    // Accepts a batch of actual departure/arrival times.
+    // Returns a BatchUpdateResult with per-item success/failure detail so the
+    // caller knows exactly what was applied and what was rejected.
+    // One invalid trip ID in the batch does not fail the whole request.
     [HttpPost("trips")]
     public IActionResult ProcessTripUpdates([FromBody] BatchUpdateRequest request)
     {
