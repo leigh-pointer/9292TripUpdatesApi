@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{5C53715E-A2C7-4606-B9BD-09BE9344A6EA}"
 	ProjectSection(SolutionItems) = preProject
 		ENG-NLD.md = ENG-NLD.md
+		SOLUTION-NL.md = SOLUTION-NL.md
 		SOLUTION.md = SOLUTION.md
 	EndProjectSection
 EndProject
