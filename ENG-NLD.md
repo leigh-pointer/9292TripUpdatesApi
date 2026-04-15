@@ -1,5 +1,15 @@
 # Trip Updates API - Solution Description
-
+<style>
+.container-lg {
+max-width: inherit;
+}
+/* Top align all header and data cells */
+table th,
+table td {
+  text-align: left;
+  vertical-align: top;
+}
+</style>
 <table>
   <tr>
 	<th>Aspect</th>
