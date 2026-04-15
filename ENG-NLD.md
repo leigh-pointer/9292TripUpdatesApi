@@ -1,5 +1,5 @@
 # Trip Updates API - Solution Description
-<table>
+<table> 
   <tr>
 	<th style="text-align:left; vertical-align:top;">Aspect</th>
 	<th style="text-align:left; vertical-align:top;">Description</th>
