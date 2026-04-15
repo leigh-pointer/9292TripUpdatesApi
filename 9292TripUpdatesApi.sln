@@ -9,6 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TripUpdatesApi.Tests", "Tri
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{5C53715E-A2C7-4606-B9BD-09BE9344A6EA}"
 	ProjectSection(SolutionItems) = preProject
+		ENG-NLD.md = ENG-NLD.md
 		SOLUTION.md = SOLUTION.md
 	EndProjectSection
 EndProject
